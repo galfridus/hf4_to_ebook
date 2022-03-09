@@ -3,15 +3,17 @@ import re
 from operator import itemgetter
 from collections import defaultdict
 
-hf4_input_files = ["../hf4_core.pdf", "../hf4_appendix.pdf", "../hf4_module1.pdf", "../hf4_module2.pdf", "../hf4_module3.pdf"]
+hf4_input_files = ["../LR Exodus 2022-03-09.pdf"]
+# hf4_input_files = ["../LR Core.pdf", "../LR Appendix.pdf", "../LR M1.pdf", "../LR M2.pdf", "../LR M3.pdf", "../LR Exodus 2022-03-05.pdf"]
+hf4_input_map = {"Core": 0, "Appendix": 1, "M1": 2, "M2": 3, "M3": 4, "M4": 5, "Exodus": 5}
+
 hf4_margin_width = 128
 hf4_font_to_markup = {
-    "MyriadPro-Light": "", "MyriadPro-Regular": "", "MyriadPro-Black": "",              # regular fonts
-    "MyriadPro-Semibold": "**", "MyriadPro-Bold": "**", "MyriadPro-BoldSemiCn": "*",    # bold fonts
-    "MyriadPro-SemiboldCond": "*", "MyriadPro-SemiboldSemiCn": "*",
-    "MyriadPro-BoldCondIt": "_", "MyriadPro-BoldIt": "_", "MyriadPro-SemiboldIt": "_",  # bold italic fonts
-    "MyriadPro-It": "_", "MyriadPro-LightIt": "_", "MyriadPro-It-SC700": "_",           # italic fonts
-    "MyriadPro-BoldCond": "",           # used for examples, marked up as blockquote instead
+    "MyriadPro-Light": "", "MyriadPro-Regular": "", "MyriadPro-Black": "", "Hotel-Black": "", "MinionPro-Regular":"",  # regular fonts
+    "MyriadPro-Semibold": "**", "MyriadPro-Bold": "**", "MyriadPro-BoldSemiExt": "*", "MyriadPro-BlackCond": "*",                   # bold fonts
+    "MyriadPro-BoldCondIt": "_", "MyriadPro-BoldIt": "_", "MyriadPro-SemiboldIt": "_",                  # bold italic fonts (marked up just italic)
+    "MyriadPro-It": "_", "MyriadPro-LightIt": "_", "MyriadPro-It-SC700": "_", "MyriadPro-SemiCnIt": "_", "MyriadPro-Cond": "_", "MyriadPro-CondIt": "_",  # italic fonts
+    "MyriadPro-BoldCond": "", "MyriadPro-BlackSemiCn": "", "MyriadPro-BoldSemiCn": "", "MyriadPro-SemiboldCond": "", "'MyriadPro-SemiboldSemiCn": "", "MyriadPro-SemiboldSemiCn": "",       # used for examples, marked up as blockquote instead
     "AstronomicSignsSt": "<starsign>",  # special character font, see hf4_letter_to_starsign
 }
 hf4_letter_to_starsign = {
@@ -102,7 +104,7 @@ def no_transparent_text(obj): return obj["object_type"] != "char" or len(obj["no
 
 
 def extract_page(a4page, a4pagenum):
-    if a4pagenum == 2 or (111 < a4pagenum < 203) or (226 < a4pagenum < 303) or (325 < a4pagenum < 403):
+    if a4pagenum == 2 or (111 < a4pagenum < 203) or (226 < a4pagenum < 303) or (325 < a4pagenum < 403) or a4pagenum == 502:
         return ""  # exclude tables of contents, card descriptions, and essays
 
     footnote_hline_top = max([line["top"] for line in a4page.lines if line["width"] > 400], default=a4page.height)
@@ -120,9 +122,19 @@ def extract_page(a4page, a4pagenum):
 if __name__ == "__main__":  # `pip3 freeze > requirements.txt` to export dependencies to file
     with open("hf4.md", "w", encoding="utf-8") as out:  # `pandoc hf4.md -o hf4.epub metadata.txt --toc-depth=2` to generate
         for docnum, doc in enumerate(hf4_input_files):
+            # Map file # if possible
+            doc_number = docnum
+            for key in hf4_input_map.keys():
+                if doc.find(key) > -1:
+                    doc_number = hf4_input_map[key]
+                    break
             with pdfplumber.open(doc) as pdf:
                 for pagenum, page in enumerate(pdf.pages[1:-1]):  # exclude unnecessary first and last A4 pages
-                    left = page.within_bbox((0, 0, 0.5 * float(page.width), page.height - 40))
-                    out.write(extract_page(left, 2 * pagenum + 2 + 100 * docnum))
-                    right = page.within_bbox((0.5 * float(page.width), 0, float(page.width), page.height - 40))
-                    out.write(extract_page(right, 2 * pagenum + 3 + 100 * docnum))
+                    if doc_number == 5: # Exodus, Module 4 is currently single page per spread
+                        only = page.within_bbox((0, 0, 1 * float(page.width), page.height - 40))
+                        out.write(extract_page(only, pagenum + 2 + 100 * doc_number))
+                    else:
+                        left = page.within_bbox((0, 0, 0.5 * float(page.width), page.height - 40))
+                        out.write(extract_page(left, 2 * pagenum + 2 + 100 * doc_number))
+                        right = page.within_bbox((0.5 * float(page.width), 0, float(page.width), page.height - 40))
+                        out.write(extract_page(right, 2 * pagenum + 3 + 100 * doc_number))
