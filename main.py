@@ -3,8 +3,8 @@ import re
 from operator import itemgetter
 from collections import defaultdict
 
-hf4_input_files = ["../LR Exodus 2022-03-09.pdf"]
-# hf4_input_files = ["../LR Core.pdf", "../LR Appendix.pdf", "../LR M1.pdf", "../LR M2.pdf", "../LR M3.pdf", "../LR Exodus 2022-03-05.pdf"]
+hf4_input_files = ["../LR M4 2025-02-20.pdf"]
+# hf4_input_files = ["../LR Core.pdf", "../LR Appendix.pdf", "../LR M1.pdf", "../LR M2.pdf", "../LR M3.pdf"]
 hf4_input_map = {"Core": 0, "Appendix": 1, "M1": 2, "M2": 3, "M3": 4, "M4": 5, "Exodus": 5}
 
 hf4_margin_width = 128
@@ -18,7 +18,7 @@ hf4_font_to_markup = {
 }
 hf4_letter_to_starsign = {
     #         Venus     Mercury   Mars      Jupyter   Saturn    Uranus    Neptune   Ceres               Earth
-    "B": "⊙", "C": "♀", "D": "☿", "E": "♂", "F": "♃", "G": "♄", "H": "⛢", "J": "♆", "K": "⚳", "L": "♁", "M": "⊕", " ": " ",
+    "B": "⊙", "C": "♀", "D": "☿", "E": "♂", "F": "♃", "G": "♄", "H": "⛢", "J": "♆", "K": "⚳", "L": "♁", "M": "⊕", "m": "⊕", " ": " ",
 }
 hf4_page_to_extra_rects = defaultdict(list, {
     24: [{'top': 475, 'bottom': 723, 'x0': 41, 'y0': 841.9 - 723, 'x1': 552, 'y1': 841.9 - 475}],
@@ -26,7 +26,9 @@ hf4_page_to_extra_rects = defaultdict(list, {
     43: [{'top': 360, 'bottom': 795, 'x0': 637, 'y0': 841.9 - 795, 'x1': 1149, 'y1': 841.9 - 360}],
     49: [{'top': 164, 'bottom': 270, 'x0': 637, 'y0': 841.9 - 270, 'x1': 1149, 'y1': 841.9 - 164}]
 })
-
+hf4_page_pop_rects = {
+    208: [2]
+}
 
 # known issue: interleaved texts "EXAMPLE [J1b]" (and similar) due to line top being between two other lines
 def collate_line(line_chars):  # adapted from pdfplumber.utils.collate_line
@@ -44,11 +46,11 @@ def collate_line(line_chars):  # adapted from pdfplumber.utils.collate_line
 
 
 def add_bol_markup(text, fontname):
-    heading1 = re.search(r"^[\s]*([1-3]?[A-Z])\.[\s]+", text)
+    heading1 = re.search(r"^[\s]*([1-4]?[A-Z])\.[\s]+", text)
     if heading1 or (text == "Glossary" and fontname == "MyriadPro-Bold"):
         anchor = text if heading1 is None else heading1.group(1)
         return "# " + text, " {#a" + anchor + "}"
-    heading2 = re.search(r"^[\s]*([1-3]?[A-Z][0-9]+)\.[\s]+", text)
+    heading2 = re.search(r"^[\s]*([1-4]?[A-Z][0-9]+)\.[\s]+", text)
     if heading2:
         return "## " + text, " {#a" + heading2.group(1) + "}"
     ordered_list = re.search(r"^[\s]*([a-z1-9]\.)[\s]*", text)
@@ -72,7 +74,7 @@ def add_markup(text, fontname):
     markup = "" if len(text.strip()) == 1 and not text.strip()[0].isalnum() else hf4_font_to_markup[fontname]
     pre = " " + markup if text[0] == " " else markup
     post = markup + " " if text[-1] == " " else markup
-    inner = re.sub("(^|[^A-Za-z0-9])([1-3]?[A-Z][1-9][0-9]?)", r"\1[\2](#a\2)", text)  # add internal link - (A1)[#A1]
+    inner = re.sub("(^|[^A-Za-z0-9])([1-4]?[A-Z][1-9][0-9]?)", r"\1[\2](#a\2)", text)  # add internal link - (A1)[#A1]
     return pre + inner.strip() + post
 
 
@@ -112,7 +114,11 @@ def extract_page(a4page, a4pagenum):
         else (0, 0, a4page.width - hf4_margin_width, footnote_hline_top)
     main_section = a4page.within_bbox(main_section_bbox, relative=True)\
         .filter(no_footnote).filter(no_huge_text).filter(no_transparent_text)
-    rects = [r for r in a4page.rects if r["linewidth"] > 0] + hf4_page_to_extra_rects[a4pagenum]
+
+    rects = [r for r in a4page.rects] + hf4_page_to_extra_rects[a4pagenum]
+
+    for r in hf4_page_pop_rects.get(a4pagenum, []):
+        rects.pop(r)
 
     page_comment = f"\n[comment{a4pagenum}]: # (page {a4pagenum})\n\n"
     print(page_comment)
@@ -130,7 +136,8 @@ if __name__ == "__main__":  # `pip3 freeze > requirements.txt` to export depende
                     break
             with pdfplumber.open(doc) as pdf:
                 for pagenum, page in enumerate(pdf.pages[1:-1]):  # exclude unnecessary first and last A4 pages
-                    if doc_number == 5: # Exodus, Module 4 is currently single page per spread
+                    if doc_number == 7: # Exodus, Module 4 is currently single page per spread
+                        print(f'Height: {page.height}, Width: {page.width}, page {pagenum}.')
                         only = page.within_bbox((0, 0, 1 * float(page.width), page.height - 40))
                         out.write(extract_page(only, pagenum + 2 + 100 * doc_number))
                     else:

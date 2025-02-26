@@ -14,6 +14,7 @@ Drawbacks:
 ## Getting started
 
 - Needs a working Python installation including the [pdfplumber](https://github.com/jsvine/pdfplumber) module (`pip install pdfplumber`)
+- Pdfplumber has been updated and the newer HF4 files require an updated version
 - Needs [Pandoc](https://pandoc.org) for conversion from the generated Markdown file to the desired output format
 
 1. Download the latest [living rules files](https://docs.google.com/spreadsheets/d/1dt1g3XGxMcQPIij1uLAc-x9-TiZXiwHTX8-jYK-3hEg)
